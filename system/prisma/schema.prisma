@@ -1,0 +1,327 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum GuestType {
+  ADULT
+  CHILD
+  PWD
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLATION
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id                            String     @id @default(uuid())
+  role                          Role       @default(USER)
+  avatar                        String?    @db.VarChar(191)
+  firstName                     String     @map("first_name") @db.VarChar(35)
+  lastName                      String     @map("last_name") @db.VarChar(35)
+  birthDate                     DateTime   @map("birth_date")
+  line1                         String     @db.VarChar(191)
+  line2                         String     @db.VarChar(191)
+  city                          String     @db.VarChar(191)
+  state                         String     @db.VarChar(191)
+  postalCode                    String     @db.VarChar(191)
+  country                       String     @db.VarChar(191)
+  mobile                        String     @unique @map("mobile") @db.VarChar(11)
+  email                         String     @unique @db.VarChar(191)
+  username                      String     @unique @db.VarChar(50)
+  password                      String     @db.VarChar(191)
+  mobileVerifiedAt              DateTime?  @map("mobile_verified_at")
+  emailVerifiedAt               DateTime?  @map("email_verified_at")
+  emailVerificationToken        String?    @db.VarChar(191)
+  emailVerificationTokenExpiry  DateTime?
+  mobileVerificationToken       String?    @db.VarChar(191)
+  mobileVerificationTokenExpiry DateTime?
+  createdAt                     DateTime   @default(now()) @map("created_at")
+  updatedAt                     DateTime?  @updatedAt @map("updated_at")
+  reviews                       Review[]
+  agreement                     Agreement?
+  Booking                       Booking[]
+
+  @@unique([firstName, lastName])
+  @@index([id, username, email, mobile, lastName, firstName])
+  @@map("users")
+}
+
+model Agreement {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  termsAndConditions Boolean @default(false) @map("terms_and_conditions")
+  dataPrivacyPolicy  Boolean @default(false) @map("data_privacy_policy")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("agreements")
+}
+
+model Review {
+  id        String    @id @default(uuid())
+  user      User?     @relation(fields: [userId], references: [id])
+  userId    String?   @map("user_id")
+  alias     String?
+  comment   String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  @@map("reviews")
+}
+
+model Inclusion {
+  id            String       @id @default(uuid())
+  name          String       @unique
+  description   String?
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime?    @updatedAt @map("updated_at")
+  accommodation AInclusion[]
+
+  @@index([id, name])
+  @@map("inclusions")
+}
+
+model Amenity {
+  id            String     @id @default(uuid())
+  name          String     @unique
+  description   String?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime?  @updatedAt @map("updated_at")
+  accommodation AAmenity[]
+
+  @@index([id, name])
+  @@map("amenities")
+}
+
+model Facility {
+  id            String      @id @default(uuid())
+  name          String      @db.VarChar(191)
+  description   String?     @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime?   @updatedAt @map("updated_at")
+  accommodation AFacility[]
+
+  @@unique([name])
+  @@index([id, name])
+  @@map("facilities")
+}
+
+model Accommodation {
+  id                 String               @id @default(uuid())
+  photo              String?              @db.VarChar(191)
+  name               String               @db.VarChar(191)
+  description        String?              @db.Text
+  virtualTour        String?              @map("virtual_tour") @db.VarChar(191)
+  isPackage          Boolean              @default(false) @map("is_package")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime?            @updatedAt @map("updated_at")
+  inclusions         AInclusion[]
+  amenities          AAmenity[]
+  facilities         AFacility[]
+  rates              ARate[]
+  maxAllowedGuests   AMaxAllowedGuest[]
+  maxExcessGuests    AMaxExcessGuest[]
+  excessGuestCharges AExcessGuestCharge[]
+  Booking            Booking[]
+
+  @@unique([name])
+  @@index([id, name])
+  @@map("accommodations")
+}
+
+model AInclusion {
+  accommodationId String        @map("accommodation_id")
+  inclusionId     String        @map("inclusion_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  inclusion       Inclusion     @relation(fields: [inclusionId], references: [id])
+
+  @@id([accommodationId, inclusionId])
+  @@index([accommodationId, inclusionId])
+  @@map("accommodation_inclusions")
+}
+
+model AAmenity {
+  amenityId       String        @map("amenity_id")
+  accommodationId String        @map("accommodation_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  amenity         Amenity       @relation(fields: [amenityId], references: [id])
+
+  @@id([accommodationId, amenityId])
+  @@index([accommodationId, amenityId])
+  @@map("accommodation_amenities")
+}
+
+model AFacility {
+  accommodationId String        @map("accommodation_id")
+  facilityId      String        @map("facility_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  facility        Facility      @relation(fields: [facilityId], references: [id])
+
+  @@id([accommodationId, facilityId])
+  @@index([accommodationId, facilityId])
+  @@map("accommodation_facilities")
+}
+
+model TimeSlot {
+  id               String             @id @default(uuid())
+  name             String             @unique
+  startTime        String             @map("start_time") @db.VarChar(10)
+  endTime          String             @map("end_time") @db.VarChar(10)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime?          @updatedAt @map("updated_at")
+  rates            ARate[]
+  maxAllowedGuests AMaxAllowedGuest[]
+  maxExcessGuests  AMaxExcessGuest[]
+  Booking          Booking[]
+
+  @@unique([name, startTime, endTime])
+  @@index([id, name])
+  @@map("time_slots")
+}
+
+model ARate {
+  id              String        @id @default(uuid())
+  accommodationId String        @map("accommodation_id")
+  timeSlotId      String        @map("time_slot_id")
+  rate            Decimal       @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  timeSlot        TimeSlot      @relation(fields: [timeSlotId], references: [id])
+
+  @@unique([accommodationId, timeSlotId])
+  @@index([id, accommodationId, timeSlotId])
+  @@map("rates")
+}
+
+model AMaxAllowedGuest {
+  id              String        @id @default(uuid())
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  accommodationId String
+  timeSlot        TimeSlot      @relation(fields: [timeSlotId], references: [id])
+  timeSlotId      String
+  guestCount      Int
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+
+  @@index([id, accommodationId, timeSlotId])
+  @@map("max_allowed_guests")
+}
+
+model AMaxExcessGuest {
+  id              String        @id @default(uuid())
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  accommodationId String
+  timeSlot        TimeSlot      @relation(fields: [timeSlotId], references: [id])
+  timeSlotId      String
+  guestCount      Int           @map("guest_count")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+
+  @@index([id, accommodationId, timeSlotId])
+  @@map("max_excess_guests")
+}
+
+model AExcessGuestCharge {
+  id              String        @id @default(uuid())
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+  accommodationId String
+  guestType       GuestType     @map("guest_type")
+  rate            Decimal       @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @updatedAt @map("updated_at")
+
+  @@index([id, accommodationId, guestType])
+  @@map("excess_guest_charges")
+}
+
+model Booking {
+  id                      String        @id @default(uuid())
+  bookingNo               String        @unique @map("booking_no")
+  frontId                 String
+  backId                  String
+  accommodation           Accommodation @relation(fields: [accommodationId], references: [id])
+  accommodationId         String        @map("accommodation_id")
+  timeSlot                TimeSlot      @relation(fields: [timeSlotId], references: [id])
+  timeSlotId              String        @map("time_slot_id")
+  user                    User          @relation(fields: [userId], references: [id])
+  userId                  String        @map("user_id")
+  checkIn                 DateTime      @db.Date
+  checkOut                DateTime      @db.Date
+  adults                  Int           @default(0)
+  children                Int           @default(0)
+  pwds                    Int           @default(0)
+  bookingFee              Decimal       @default(0) @db.Decimal(10, 2)
+  reservationFee          Decimal       @default(0) @db.Decimal(10, 2)
+  balance                 Decimal       @default(0) @db.Decimal(10, 2)
+  securityDeposit         Decimal       @default(0) @db.Decimal(10, 2)
+  status                  BookingStatus
+  reasonForCancellation   String?       @map("reason_for_cancellation") // Initiate cancellation by guest. add reason for cancellation
+  responseForCancellation String?       @map("response_for_cancellation") // Response by admin. add response for cancellation
+  reasonForRejection      String?       @map("reason_for_rejection") // Initiate rejection admin. add reason for rejection
+  refundQrPayment         String?       @map("refund_qr_payment") // Response by guest. upload qr payment for refund
+  refundReceipt           String?       @map("refund_receipt") // Response by admin, upload receipt of refund
+  refundMessage           String?       @map("refund_message") // Message by admin for refund
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime?     @updatedAt @map("updated_at")
+  payments                BPayment[]
+
+  @@unique([userId, checkIn, checkOut, accommodationId, timeSlotId])
+  @@index([userId])
+  @@map("bookings")
+}
+
+model BPayment {
+  id               String    @id @default(uuid())
+  booking          Booking   @relation(fields: [bookingId], references: [id])
+  bookingId        String
+  paymentIntentId  String?   @map("payment_intent_id")
+  paymentClientKey String?   @map("payment_client_key")
+  paymentOption    String?   @map("payment_option")
+  paymentMethod    String?   @map("payment_method")
+  isCash           Boolean   @default(false) @map("is_cash")
+  amount           Decimal   @default(0) @db.Decimal(10, 2)
+  change           Decimal   @default(0) @db.Decimal(10, 2)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime? @updatedAt @map("updated_at")
+
+  @@map("payments")
+}
